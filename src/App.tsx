@@ -15,6 +15,8 @@ import {
   deleteFile,
   getGitStatus,
   gitSync,
+  getCurrentDir,
+  openFolderPicker,
 } from './services/tauriService';
 import { parseFrontmatter, generateFrontmatterTemplate } from './services/frontmatterService';
 import { renderMarkdown, calculateStats } from './services/markdownService';
@@ -65,6 +67,7 @@ export const App: React.FC = () => {
   // File & Content State
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [currentFilePath, setCurrentFilePath] = useState<string>('');
+  const [openFiles, setOpenFiles] = useState<{ path: string; name: string }[]>([]);
   const [content, setContent] = useState<string>('');
   const [isDirty, setIsDirty] = useState<boolean>(false);
 
@@ -197,20 +200,34 @@ export const App: React.FC = () => {
   // Load files in workspace
   const loadWorkspace = async (dirPath: string) => {
     try {
-      const fileList = await listFiles(dirPath);
+      let targetPath = dirPath;
+      if (!targetPath || targetPath === '/blog/_posts') {
+        const cur = await getCurrentDir();
+        if (cur) {
+          targetPath = cur;
+          setSettings((s) => {
+            const updated = { ...s, workspacePath: targetPath };
+            localStorage.setItem('flanmd_settings', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }
+      const fileList = await listFiles(targetPath);
       setFiles(fileList);
 
       // Check Git status
-      const status = await getGitStatus(dirPath);
+      const status = await getGitStatus(targetPath);
       setGitStatus(status);
 
       // Auto-open first file if none open
       if (!currentFilePath && fileList.length > 0) {
-        const first = fileList[0];
-        setCurrentFilePath(first.path);
-        const text = await readFile(first.path);
-        setContent(text);
-        setIsDirty(false);
+        const firstFile = fileList.find((f) => !f.is_dir) || fileList[0];
+        if (firstFile && !firstFile.is_dir) {
+          setCurrentFilePath(firstFile.path);
+          const text = await readFile(firstFile.path);
+          setContent(text);
+          setIsDirty(false);
+        }
       }
     } catch (e) {
       console.error('Failed to load workspace:', e);
@@ -220,6 +237,33 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadWorkspace(settings.workspacePath);
   }, [settings.workspacePath]);
+
+  // Track open files in open editors tab
+  useEffect(() => {
+    if (currentFilePath) {
+      const name = currentFilePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || currentFilePath;
+      setOpenFiles((prev) => {
+        if (prev.some((f) => f.path === currentFilePath)) return prev;
+        return [...prev, { path: currentFilePath, name }];
+      });
+    }
+  }, [currentFilePath]);
+
+  const handleCloseOpenFile = (path: string) => {
+    setOpenFiles((prev) => {
+      const next = prev.filter((f) => f.path !== path);
+      if (currentFilePath === path) {
+        if (next.length > 0) {
+          handleSelectFile({ name: next[0].name, path: next[0].path, is_dir: false });
+        } else {
+          setCurrentFilePath('');
+          setContent('');
+          setIsDirty(false);
+        }
+      }
+      return next;
+    });
+  };
 
   // Parse frontmatter & render markdown
   const { frontmatter, body } = useMemo(() => parseFrontmatter(content), [content]);
@@ -307,10 +351,7 @@ export const App: React.FC = () => {
   };
 
   const handleSelectWorkspaceFolder = async () => {
-    const dir = prompt(
-      '请输入本地博客/文章目录绝对路径 (例如 H:/Files/MyBlog/source/_posts)：',
-      settings.workspacePath
-    );
+    const dir = await openFolderPicker();
     if (dir && dir.trim()) {
       const updated = { ...settings, workspacePath: dir.trim() };
       setSettings(updated);
@@ -492,17 +533,22 @@ export const App: React.FC = () => {
 
       {/* Workspace Body */}
       <div className="flan-workspace-body">
-        {/* Left Sidebar */}
+        {/* Left Sidebar & Activity Bar */}
         <Sidebar
           isOpen={sidebarOpen}
+          onToggleOpen={() => setSidebarOpen((prev) => !prev)}
           width={sidebarWidth}
           workspacePath={settings.workspacePath}
           files={files}
           currentFilePath={currentFilePath}
+          openFiles={openFiles}
+          isDirty={isDirty}
           onSelectFile={handleSelectFile}
+          onCloseOpenFile={handleCloseOpenFile}
           onNewFile={handleNewFile}
           onDeleteFile={handleDeleteFile}
           onSelectWorkspaceFolder={handleSelectWorkspaceFolder}
+          onRefreshWorkspace={() => loadWorkspace(settings.workspacePath)}
           headings={headings}
           onScrollToHeading={handleScrollToHeading}
           gitStatus={gitStatus}
@@ -515,6 +561,7 @@ export const App: React.FC = () => {
             setSettings(updated);
             localStorage.setItem('flanmd_settings', JSON.stringify(updated));
           }}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
 
         {/* Sidebar Resizer Bar */}

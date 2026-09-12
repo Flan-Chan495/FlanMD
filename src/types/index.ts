@@ -6,6 +6,7 @@ export interface FileEntry {
   path: string;
   is_dir: boolean;
   extension?: string;
+  children?: FileEntry[];
 }
 
 export interface GitStatus {

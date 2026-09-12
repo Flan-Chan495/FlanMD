@@ -203,3 +203,29 @@ export const readFile = readTextFile;
 export const saveFile = saveTextFile;
 export const gitSync = gitCommitAndPush;
 
+export const getCurrentDir = async (): Promise<string> => {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<string>('get_current_dir');
+    } catch (e) {
+      console.warn('get_current_dir error:', e);
+    }
+  }
+  return 'H:/Files/FlanMD';
+};
+
+export const openFolderPicker = async (): Promise<string | null> => {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const path = await invoke<string | null>('pick_folder');
+      return path;
+    } catch (e) {
+      console.warn('Native folder picker failed, fallback:', e);
+    }
+  }
+  return prompt('请输入本地博客/文章目录绝对路径：', 'H:/Files/FlanMD');
+};
+
+
