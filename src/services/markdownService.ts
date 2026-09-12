@@ -87,17 +87,9 @@ export const processCallouts = (html: string): string => {
       CAUTION: 'Caution',
     };
 
-    return `
-      <div class="callout callout-${alertType.toLowerCase()}">
-        <div class="callout-header">
-          ${iconMap[alertType] || ''}
-          <span class="callout-title">${titleMap[alertType] || alertType}</span>
-        </div>
-        <div class="callout-body">
-          <p>${content}
-        </div>
-      </div>
-    `;
+    const cleanContent = content.trim();
+    const bodyHtml = cleanContent.startsWith('<p>') ? cleanContent : `<p>${cleanContent}</p>`;
+    return `<div class="callout callout-${alertType.toLowerCase()}"><div class="callout-header">${iconMap[alertType] || ''}<span class="callout-title">${titleMap[alertType] || alertType}</span></div><div class="callout-body">${bodyHtml}</div></div>`;
   });
 };
 
@@ -158,69 +150,72 @@ const CALLOUT_ICONS: Record<string, string> = {
   caution: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
 };
 
-// Process :::container blocks (VitePress / VuePress / Obsidian directive syntax)
-export const processContainers = (content: string): string => {
-  // Regex matches :::type [optional title] \n body \n :::
-  const containerRegex = /(?:^|\n):::([a-zA-Z0-9_-]+)(?:[ \t]+([^\n]*))?\r?\n([\s\S]*?)\r?\n:::[ \t]*(?=\n|$)/g;
-
-  return content.replace(containerRegex, (_, rawType: string, customTitle?: string, body?: string) => {
-    const rawLower = rawType.toLowerCase().trim();
-    const title = (customTitle || '').trim();
-    const innerContent = (body || '').trim();
-    const innerHtml = (customMarked.parse(innerContent) as string) || '';
-
-    if (rawLower === 'details') {
-      return `\n<details class="callout-details"><summary>${title || 'Details'}</summary><div class="callout-body">${innerHtml}</div></details>\n`;
-    }
-
-    let calloutType = 'note';
-    let defaultTitle = 'Note';
-
-    if (rawLower === 'tip' || rawLower === 'success') {
-      calloutType = 'tip';
-      defaultTitle = 'Tip';
-    } else if (rawLower === 'warning') {
-      calloutType = 'warning';
-      defaultTitle = 'Warning';
-    } else if (rawLower === 'caution' || rawLower === 'danger' || rawLower === 'error') {
-      calloutType = 'caution';
-      defaultTitle = rawLower === 'danger' ? 'Danger' : 'Caution';
-    } else if (rawLower === 'important') {
-      calloutType = 'important';
-      defaultTitle = 'Important';
-    } else if (rawLower === 'info') {
-      calloutType = 'note';
-      defaultTitle = 'Info';
-    }
-
-    const icon = CALLOUT_ICONS[calloutType] || CALLOUT_ICONS.note;
-    const displayTitle = title || defaultTitle;
-
-    return `\n<div class="callout callout-${calloutType}">
-      <div class="callout-header">
-        ${icon}
-        <span class="callout-title">${displayTitle}</span>
-      </div>
-      <div class="callout-body">
-        ${innerHtml}
-      </div>
-    </div>\n`;
-  });
-};
-
 export const renderMarkdown = (markdownText: string): RenderResult => {
   headingList = [];
 
   // 1. Math formulas preprocessing
   const mathProcessed = processMath(markdownText);
 
-  // 2. Process :::container custom blocks (VitePress / VuePress / Obsidian)
-  const containerProcessed = processContainers(mathProcessed);
+  // 2. Stash :::container custom blocks into placeholder tokens to avoid Marked interpreting HTML indentation as code blocks
+  const containerMap: Record<string, string> = {};
+  let containerCounter = 0;
+  const containerRegex = /(?:^|\n):::([a-zA-Z0-9_-]+)(?:[ \t]+([^\n]*))?\r?\n([\s\S]*?)\r?\n:::[ \t]*(?=\n|$)/g;
+
+  const stashedText = mathProcessed.replace(
+    containerRegex,
+    (_, rawType: string, customTitle?: string, body?: string) => {
+      const rawLower = rawType.toLowerCase().trim();
+      const title = (customTitle || '').trim();
+      const innerContent = (body || '').trim();
+      const innerHtml = ((customMarked.parse(innerContent) as string) || '').trim();
+
+      let renderedCallout = '';
+      if (rawLower === 'details') {
+        renderedCallout = `<details class="callout-details"><summary>${title || 'Details'}</summary><div class="callout-body">${innerHtml}</div></details>`;
+      } else {
+        let calloutType = 'note';
+        let defaultTitle = 'Note';
+
+        if (rawLower === 'tip' || rawLower === 'success') {
+          calloutType = 'tip';
+          defaultTitle = 'Tip';
+        } else if (rawLower === 'warning') {
+          calloutType = 'warning';
+          defaultTitle = 'Warning';
+        } else if (rawLower === 'caution' || rawLower === 'danger' || rawLower === 'error') {
+          calloutType = 'caution';
+          defaultTitle = rawLower === 'danger' ? 'Danger' : 'Caution';
+        } else if (rawLower === 'important') {
+          calloutType = 'important';
+          defaultTitle = 'Important';
+        } else if (rawLower === 'info') {
+          calloutType = 'note';
+          defaultTitle = 'Info';
+        }
+
+        const icon = CALLOUT_ICONS[calloutType] || CALLOUT_ICONS.note;
+        const displayTitle = title || defaultTitle;
+
+        renderedCallout = `<div class="callout callout-${calloutType}"><div class="callout-header">${icon}<span class="callout-title">${displayTitle}</span></div><div class="callout-body">${innerHtml}</div></div>`;
+      }
+
+      const placeholder = `__FLAN_CONTAINER_${containerCounter++}__`;
+      containerMap[placeholder] = renderedCallout;
+      return `\n\n${placeholder}\n\n`;
+    }
+  );
 
   // 3. Parse Markdown to HTML
-  let rawHtml = customMarked.parse(containerProcessed) as string;
+  let rawHtml = customMarked.parse(stashedText) as string;
 
-  // 4. Process GitHub Callouts (> [!NOTE])
+  // 4. Restore stashed container HTML
+  Object.keys(containerMap).forEach((placeholder) => {
+    const html = containerMap[placeholder];
+    const regex = new RegExp(`<p>\\s*${placeholder}\\s*<\\/p>|${placeholder}`, 'g');
+    rawHtml = rawHtml.replace(regex, html);
+  });
+
+  // 5. Process GitHub Callouts (> [!NOTE])
   rawHtml = processCallouts(rawHtml);
 
   return {
