@@ -323,6 +323,8 @@ html, body, #root {
   padding: 0.2rem 0.45rem;
   border-radius: var(--radius-xs);
   font-size: 0.88em;
+  font-variant-ligatures: none;
+  font-feature-settings: "calt" 0, "liga" 0;
 }
 
 /* Code Blocks */

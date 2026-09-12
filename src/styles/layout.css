@@ -358,6 +358,9 @@
   user-select: none;
   overflow: hidden;
   box-sizing: border-box;
+  font-variant-ligatures: none;
+  -webkit-font-variant-ligatures: none;
+  font-feature-settings: "calt" 0, "liga" 0;
 }
 
 .raw-textarea {
@@ -375,6 +378,9 @@
   white-space: pre-wrap;
   word-break: break-word;
   overflow-y: auto;
+  font-variant-ligatures: none;
+  -webkit-font-variant-ligatures: none;
+  font-feature-settings: "calt" 0, "liga" 0;
 }
 
 /* Status Bar */
