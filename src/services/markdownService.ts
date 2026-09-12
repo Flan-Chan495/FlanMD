@@ -199,21 +199,20 @@ export const renderMarkdown = (markdownText: string): RenderResult => {
         renderedCallout = `<div class="callout callout-${calloutType}"><div class="callout-header">${icon}<span class="callout-title">${displayTitle}</span></div><div class="callout-body">${innerHtml}</div></div>`;
       }
 
-      const placeholder = `__FLAN_CONTAINER_${containerCounter++}__`;
-      containerMap[placeholder] = renderedCallout;
-      return `\n\n${placeholder}\n\n`;
+      const id = String(containerCounter++);
+      containerMap[id] = renderedCallout;
+      return `\n\n<flan-container data-id="${id}"></flan-container>\n\n`;
     }
   );
 
   // 3. Parse Markdown to HTML
   let rawHtml = customMarked.parse(stashedText) as string;
 
-  // 4. Restore stashed container HTML
-  Object.keys(containerMap).forEach((placeholder) => {
-    const html = containerMap[placeholder];
-    const regex = new RegExp(`<p>\\s*${placeholder}\\s*<\\/p>|${placeholder}`, 'g');
-    rawHtml = rawHtml.replace(regex, html);
-  });
+  // 4. Restore stashed container HTML (handle potential <p> wrapper or standalone)
+  rawHtml = rawHtml.replace(
+    /<p>\s*<flan-container data-id="(\d+)"><\/flan-container>\s*<\/p>|<flan-container data-id="(\d+)"><\/flan-container>/g,
+    (_, id1, id2) => containerMap[id1 || id2] || ''
+  );
 
   // 5. Process GitHub Callouts (> [!NOTE])
   rawHtml = processCallouts(rawHtml);
