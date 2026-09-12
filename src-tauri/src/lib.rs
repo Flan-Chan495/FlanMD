@@ -51,10 +51,24 @@ fn run_command_in(dir: &str, program: &str, args: &[&str]) -> Result<String, Str
 }
 
 #[tauri::command]
+fn get_current_dir() -> Result<String, String> {
+    std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn list_files_in_dir(dir_path: String) -> Result<Vec<FileEntry>, String> {
-    let p = Path::new(&dir_path);
+    let target_dir = dir_path.clone();
+    let mut p = Path::new(&target_dir);
+    let cur;
     if !p.exists() || !p.is_dir() {
-        return Err(format!("Path {} does not exist or is not a directory", dir_path));
+        if let Ok(c) = std::env::current_dir() {
+            cur = c;
+            p = &cur;
+        } else {
+            return Err(format!("Path {} does not exist or is not a directory", dir_path));
+        }
     }
 
     let mut entries = Vec::new();
@@ -66,21 +80,21 @@ fn list_files_in_dir(dir_path: String) -> Result<Vec<FileEntry>, String> {
             let is_dir = path.is_dir();
             let name = entry.file_name().to_string_lossy().to_string();
 
-            // Ignore hidden files / directories (like .git, .vscode, etc.)
-            if name.starts_with('.') {
+            // Ignore target, .git, and hidden dot files (except .gitignore, .vscode, .cargo)
+            if name == "target" || name == ".git" {
+                continue;
+            }
+            if name.starts_with('.') && name != ".gitignore" && name != ".vscode" && name != ".cargo" {
                 continue;
             }
 
             let ext = path.extension().map(|s| s.to_string_lossy().to_string());
-            // We include subdirectories or markdown / text files
-            if is_dir || ext.as_deref() == Some("md") || ext.as_deref() == Some("markdown") || ext.as_deref() == Some("txt") {
-                entries.push(FileEntry {
-                    name,
-                    path: path.to_string_lossy().to_string(),
-                    is_dir,
-                    extension: ext,
-                });
-            }
+            entries.push(FileEntry {
+                name,
+                path: path.to_string_lossy().to_string(),
+                is_dir,
+                extension: ext,
+            });
         }
     }
 
@@ -204,17 +218,43 @@ fn git_commit_and_push(dir_path: String, commit_msg: String) -> Result<GitAction
     }
 }
 
+#[tauri::command]
+fn pick_folder() -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        let script = "[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = '选择博客或Markdown工作区文件夹'; if($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ Write-Output $f.SelectedPath }";
+        let out = run_command_in(".", "powershell", &["-NoProfile", "-Command", script]);
+        match out {
+            Ok(path) => {
+                let trimmed = path.trim().to_string();
+                if trimmed.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(trimmed))
+                }
+            }
+            Err(_) => Ok(None),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(None)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            get_current_dir,
             list_files_in_dir,
             read_text_file,
             save_text_file,
             delete_file,
             git_get_status,
-            git_commit_and_push
+            git_commit_and_push,
+            pick_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
