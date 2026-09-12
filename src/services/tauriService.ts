@@ -228,4 +228,30 @@ export const openFolderPicker = async (): Promise<string | null> => {
   return prompt('请输入本地博客/文章目录绝对路径：', 'H:/Files/FlanMD');
 };
 
+export const openFilePicker = async (): Promise<string | null> => {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const path = await invoke<string | null>('pick_file');
+      return path;
+    } catch (e) {
+      console.warn('Native file picker failed, fallback:', e);
+    }
+  }
+  return prompt('请输入要打开的文件路径：', 'H:/Files/FlanMD/README.md');
+};
+
+export const saveFilePicker = async (defaultName?: string): Promise<string | null> => {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const path = await invoke<string | null>('pick_save_file', { defaultName });
+      return path;
+    } catch (e) {
+      console.warn('Native save file picker failed, fallback:', e);
+    }
+  }
+  return prompt('另存为文件路径：', `H:/Files/FlanMD/${defaultName || 'untitled.md'}`);
+};
+
 

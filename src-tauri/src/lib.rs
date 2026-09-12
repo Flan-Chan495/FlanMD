@@ -242,6 +242,55 @@ fn pick_folder() -> Result<Option<String>, String> {
     }
 }
 
+#[tauri::command]
+fn pick_file() -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        let script = "[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Title = '打开文件'; $f.Filter = '所有支持的文件 (*.md;*.txt;*.json;*.css;*.js;*.ts;*.tsx)|*.md;*.txt;*.json;*.css;*.js;*.ts;*.tsx|Markdown 文件 (*.md)|*.md|所有文件 (*.*)|*.*'; if($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ Write-Output $f.FileName }";
+        let out = run_command_in(".", "powershell", &["-NoProfile", "-Command", script]);
+        match out {
+            Ok(path) => {
+                let trimmed = path.trim().to_string();
+                if trimmed.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(trimmed))
+                }
+            }
+            Err(_) => Ok(None),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+fn pick_save_file(default_name: Option<String>) -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        let def = default_name.unwrap_or_else(|| "untitled.md".to_string());
+        let script = format!("[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; $f = New-Object System.Windows.Forms.SaveFileDialog; $f.Title = '文件另存为'; $f.FileName = '{}'; $f.Filter = 'Markdown 文档 (*.md)|*.md|文本文档 (*.txt)|*.txt|所有文件 (*.*)|*.*'; if($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){{ Write-Output $f.FileName }}", def);
+        let out = run_command_in(".", "powershell", &["-NoProfile", "-Command", &script]);
+        match out {
+            Ok(path) => {
+                let trimmed = path.trim().to_string();
+                if trimmed.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(trimmed))
+                }
+            }
+            Err(_) => Ok(None),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(None)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -254,7 +303,9 @@ pub fn run() {
             delete_file,
             git_get_status,
             git_commit_and_push,
-            pick_folder
+            pick_folder,
+            pick_file,
+            pick_save_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

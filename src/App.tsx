@@ -17,6 +17,8 @@ import {
   gitSync,
   getCurrentDir,
   openFolderPicker,
+  openFilePicker,
+  saveFilePicker,
 } from './services/tauriService';
 import { parseFrontmatter, generateFrontmatterTemplate } from './services/frontmatterService';
 import { renderMarkdown, calculateStats } from './services/markdownService';
@@ -278,7 +280,7 @@ export const App: React.FC = () => {
 
   const handleSaveFile = async () => {
     if (!currentFilePath) {
-      handleNewFile();
+      handleSaveFileAs();
       return;
     }
     try {
@@ -315,25 +317,171 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleNewFile = async () => {
+  const handleNewTextFile = async () => {
+    const fileName = prompt('请输入新建文件名（例如: notes.md 或 test.txt）：', 'untitled.md');
+    if (!fileName || !fileName.trim()) return;
+
+    let targetDir = settings.workspacePath;
+    if (!targetDir || targetDir === '/blog/_posts') {
+      targetDir = await getCurrentDir();
+    }
+    const newPath = `${targetDir}/${fileName.trim()}`;
+
+    try {
+      await saveFile(newPath, '');
+      await loadWorkspace(targetDir);
+      setCurrentFilePath(newPath);
+      setContent('');
+      setIsDirty(false);
+      showToast(`📄 文件 ${fileName} 创建成功`);
+    } catch (e) {
+      console.error('Create file error:', e);
+      showToast(`❌ 创建文件失败`);
+    }
+  };
+
+  const handleNewBlogPost = async () => {
     const title = prompt('请输入新文章标题：', '我的新博文');
     if (!title) return;
 
     const initialText = generateFrontmatterTemplate(title, settings.frontmatterRules);
     const fileName = `${new Date().toISOString().slice(0, 10)}-${title.toLowerCase().replace(/\s+/g, '-')}.md`;
-    const newPath = `${settings.workspacePath}/${fileName}`;
+    let targetDir = settings.workspacePath;
+    if (!targetDir || targetDir === '/blog/_posts') {
+      targetDir = await getCurrentDir();
+    }
+    const newPath = `${targetDir}/${fileName}`;
 
     try {
       await saveFile(newPath, initialText);
-      await loadWorkspace(settings.workspacePath);
+      await loadWorkspace(targetDir);
       setCurrentFilePath(newPath);
       setContent(initialText);
       setIsDirty(false);
-      showToast(`📝 文章 ${fileName} 创建成功`);
+      showToast(`📝 博文 ${fileName} 创建成功`);
     } catch (e) {
-      console.error('New file error:', e);
+      console.error('New blog post error:', e);
     }
   };
+
+  const handleOpenFile = async () => {
+    const filePath = await openFilePicker();
+    if (filePath && filePath.trim()) {
+      try {
+        const text = await readFile(filePath.trim());
+        const fileName = filePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || filePath;
+        setCurrentFilePath(filePath.trim());
+        setContent(text);
+        setIsDirty(false);
+        showToast(`📂 已打开: ${fileName}`);
+      } catch (e) {
+        console.error('Failed to open file:', e);
+        showToast('❌ 打开文件失败');
+      }
+    }
+  };
+
+  const handleSaveFileAs = async () => {
+    const curName = currentFilePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || 'untitled.md';
+    const targetPath = await saveFilePicker(curName);
+    if (targetPath && targetPath.trim()) {
+      try {
+        await saveFile(targetPath.trim(), content);
+        const fileName = targetPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || targetPath;
+        setCurrentFilePath(targetPath.trim());
+        setIsDirty(false);
+        if (settings.workspacePath) {
+          loadWorkspace(settings.workspacePath);
+        }
+        showToast(`💾 已另存为: ${fileName}`);
+      } catch (e) {
+        console.error('Save as failed:', e);
+        showToast('❌ 另存为失败');
+      }
+    }
+  };
+
+  const handleCloseEditor = () => {
+    if (currentFilePath) {
+      handleCloseOpenFile(currentFilePath);
+    } else {
+      setContent('');
+      setIsDirty(false);
+    }
+  };
+
+  const handleZoomIn = () => {
+    setFontSize((prev) => {
+      const next = Math.min(36, prev + 1);
+      localStorage.setItem('flanmd_font_size', String(next));
+      showToast(`🔍 字体缩放: ${next}px`);
+      return next;
+    });
+  };
+
+  const handleZoomOut = () => {
+    setFontSize((prev) => {
+      const next = Math.max(12, prev - 1);
+      localStorage.setItem('flanmd_font_size', String(next));
+      showToast(`🔍 字体缩放: ${next}px`);
+      return next;
+    });
+  };
+
+  const handleResetZoom = () => {
+    setFontSize(17);
+    localStorage.setItem('flanmd_font_size', '17');
+    showToast(`🔍 字体重置: 17px (100%)`);
+  };
+
+  // Auto-save effect
+  useEffect(() => {
+    if (!settings.autoSave || !isDirty || !currentFilePath) return;
+    const timer = setTimeout(() => {
+      handleSaveFile();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [content, settings.autoSave, isDirty, currentFilePath]);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        const key = e.key.toLowerCase();
+        if (key === 'n' && !e.shiftKey) {
+          e.preventDefault();
+          handleNewTextFile();
+        } else if (key === 'o' && !e.shiftKey) {
+          e.preventDefault();
+          handleOpenFile();
+        } else if (key === 's' && e.shiftKey) {
+          e.preventDefault();
+          handleSaveFileAs();
+        } else if (key === 's' && !e.shiftKey) {
+          e.preventDefault();
+          handleSaveFile();
+        } else if (key === 'b') {
+          e.preventDefault();
+          setSidebarOpen((prev) => !prev);
+        } else if (key === 'w') {
+          e.preventDefault();
+          handleCloseEditor();
+        } else if (key === '0') {
+          e.preventDefault();
+          handleResetZoom();
+        } else if (key === '=' || key === '+') {
+          e.preventDefault();
+          handleZoomIn();
+        } else if (key === '-') {
+          e.preventDefault();
+          handleZoomOut();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentFilePath, content, settings]);
 
   const handleDeleteFile = async (path: string) => {
     try {
@@ -524,11 +672,28 @@ export const App: React.FC = () => {
         gitStatus={gitStatus}
         isSyncingGit={isSyncingGit}
         onGitSync={() => handleGitSync()}
-        onNewFile={handleNewFile}
+        onNewTextFile={handleNewTextFile}
+        onNewBlogPost={handleNewBlogPost}
+        onOpenFile={handleOpenFile}
+        onOpenFolder={handleSelectWorkspaceFolder}
         onSaveFile={handleSaveFile}
+        onSaveFileAs={handleSaveFileAs}
+        onCloseEditor={handleCloseEditor}
         onInsertMarkdown={handleInsertMarkdown}
         onOpenSettings={() => setIsSettingsOpen(true)}
         isDirty={isDirty}
+        currentFileName={currentFileName}
+        autoSave={settings.autoSave}
+        onToggleAutoSave={() => {
+          const val = !settings.autoSave;
+          const updated = { ...settings, autoSave: val };
+          setSettings(updated);
+          localStorage.setItem('flanmd_settings', JSON.stringify(updated));
+          showToast(val ? '✓ 已开启自动保存' : '已关闭自动保存');
+        }}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
       />
 
       {/* Workspace Body */}
@@ -545,7 +710,7 @@ export const App: React.FC = () => {
           isDirty={isDirty}
           onSelectFile={handleSelectFile}
           onCloseOpenFile={handleCloseOpenFile}
-          onNewFile={handleNewFile}
+          onNewFile={handleNewTextFile}
           onDeleteFile={handleDeleteFile}
           onSelectWorkspaceFolder={handleSelectWorkspaceFolder}
           onRefreshWorkspace={() => loadWorkspace(settings.workspacePath)}
