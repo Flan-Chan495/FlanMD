@@ -1,12 +1,7 @@
-# FlanMD
+# Tauri + React + Typescript
 
-A modern, elegant Markdown editor.
+This template should help get you started developing with Tauri, React and Typescript in Vite.
 
-## Features (Planned)
-- 📝 Intuitive Markdown editing experience
-- ⚡ Real-time preview with high performance
-- 🎨 Beautiful typography & themes
-- 🛠️ Export options (HTML, PDF, etc.)
+## Recommended IDE Setup
 
-## License
-MIT
+- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
