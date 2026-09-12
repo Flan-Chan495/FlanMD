@@ -455,6 +455,36 @@ html, body, #root {
 }
 .callout-caution .callout-header { color: var(--callout-caution-border); }
 
+.callout-danger {
+  background: var(--callout-caution-bg);
+  border-left-color: var(--callout-caution-border);
+  color: var(--text-primary);
+}
+.callout-danger .callout-header { color: var(--callout-caution-border); }
+
+.callout-info {
+  background: var(--callout-note-bg);
+  border-left-color: var(--callout-note-border);
+  color: var(--text-primary);
+}
+.callout-info .callout-header { color: var(--callout-note-border); }
+
+.callout-details {
+  margin: 1.25rem 0;
+  padding: 0.85rem 1.15rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+.callout-details summary {
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  margin-bottom: 0.5rem;
+  color: var(--accent-primary);
+}
+
 /* Math blocks */
 .math-block {
   margin: 1.5rem 0;
