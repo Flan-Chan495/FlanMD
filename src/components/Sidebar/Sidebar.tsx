@@ -14,6 +14,7 @@ import { FileEntry, GitStatus, HeadingItem } from '../../types';
 
 interface SidebarProps {
   isOpen: boolean;
+  width?: number;
   workspacePath: string;
   files: FileEntry[];
   currentFilePath: string;
@@ -32,6 +33,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
+  width,
   workspacePath,
   files,
   currentFilePath,
@@ -56,7 +58,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   return (
-    <aside className={`flan-sidebar ${!isOpen ? 'collapsed' : ''}`}>
+    <aside
+      className={`flan-sidebar ${!isOpen ? 'collapsed' : ''}`}
+      style={isOpen && width ? { width: `${width}px`, minWidth: `${width}px` } : undefined}
+    >
       {/* Top tab navigation */}
       <div className="sidebar-tab-nav">
         <button

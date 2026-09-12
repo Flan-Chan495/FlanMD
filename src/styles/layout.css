@@ -166,15 +166,33 @@
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  transition: transform var(--transition-normal), width var(--transition-normal);
   z-index: 10;
   overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
 }
 .flan-sidebar.collapsed {
-  width: 0;
-  min-width: 0;
+  width: 0 !important;
+  min-width: 0 !important;
   transform: translateX(-100%);
   border-right: none;
+}
+
+/* Sidebar Draggable Splitter */
+.sidebar-resizer {
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 20;
+  margin-left: -2px;
+  margin-right: -3px;
+  transition: background var(--transition-fast);
+  user-select: none;
+}
+.sidebar-resizer:hover,
+.sidebar-resizer.resizing {
+  background: var(--accent-primary);
 }
 
 .sidebar-header {
@@ -306,10 +324,18 @@
 
 /* Split divider */
 .pane-divider {
-  width: 1px;
+  width: 6px;
+  cursor: col-resize;
   background: var(--border-subtle);
   position: relative;
-  z-index: 5;
+  z-index: 15;
+  transition: background var(--transition-fast);
+  user-select: none;
+  flex-shrink: 0;
+}
+.pane-divider:hover,
+.pane-divider.resizing {
+  background: var(--accent-primary);
 }
 
 /* Editor Input Area */

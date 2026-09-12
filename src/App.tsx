@@ -78,6 +78,75 @@ export const App: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const isScrollingRef = useRef<'editor' | 'preview' | null>(null);
+  const editorAreaRef = useRef<HTMLElement | null>(null);
+
+  // Panel Resizing State
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('flanmd_sidebar_width');
+    return saved ? parseInt(saved, 10) : 260;
+  });
+  const [splitRatio, setSplitRatio] = useState<number>(() => {
+    const saved = localStorage.getItem('flanmd_split_ratio');
+    return saved ? parseFloat(saved) : 50;
+  });
+  const [isDraggingSidebar, setIsDraggingSidebar] = useState<boolean>(false);
+  const [isDraggingSplit, setIsDraggingSplit] = useState<boolean>(false);
+
+  const handleSidebarMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingSidebar(true);
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(180, Math.min(550, startWidth + delta));
+      setSidebarWidth(newWidth);
+    };
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      setIsDraggingSidebar(false);
+      const delta = upEvent.clientX - startX;
+      const newWidth = Math.max(180, Math.min(550, startWidth + delta));
+      localStorage.setItem('flanmd_sidebar_width', String(newWidth));
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleSplitMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingSplit(true);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!editorAreaRef.current) return;
+      const rect = editorAreaRef.current.getBoundingClientRect();
+      const relativeX = moveEvent.clientX - rect.left;
+      const percentage = (relativeX / rect.width) * 100;
+      const clamped = Math.max(15, Math.min(85, percentage));
+      setSplitRatio(clamped);
+    };
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      setIsDraggingSplit(false);
+      if (editorAreaRef.current) {
+        const rect = editorAreaRef.current.getBoundingClientRect();
+        const relativeX = upEvent.clientX - rect.left;
+        const percentage = (relativeX / rect.width) * 100;
+        const clamped = Math.max(15, Math.min(85, percentage));
+        localStorage.setItem('flanmd_split_ratio', String(clamped));
+      }
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
 
   // Apply theme to root document
   useEffect(() => {
@@ -379,6 +448,7 @@ export const App: React.FC = () => {
         {/* Left Sidebar */}
         <Sidebar
           isOpen={sidebarOpen}
+          width={sidebarWidth}
           workspacePath={settings.workspacePath}
           files={files}
           currentFilePath={currentFilePath}
@@ -400,33 +470,82 @@ export const App: React.FC = () => {
           }}
         />
 
+        {/* Sidebar Resizer Bar */}
+        {sidebarOpen && (
+          <div
+            className={`sidebar-resizer ${isDraggingSidebar ? 'resizing' : ''}`}
+            onMouseDown={handleSidebarMouseDown}
+            onDoubleClick={() => {
+              setSidebarWidth(260);
+              localStorage.setItem('flanmd_sidebar_width', '260');
+            }}
+            title="拖拽调整侧边栏宽度 (双击恢复默认 260px)"
+          />
+        )}
+
         {/* Center Panes */}
-        <main className="flan-editor-area">
+        <main
+          className="flan-editor-area"
+          ref={editorAreaRef}
+          style={{ userSelect: isDraggingSidebar || isDraggingSplit ? 'none' : 'auto' }}
+        >
           {/* Editor Pane: Shown in 'split' and 'editor' modes */}
           {(editorMode === 'split' || editorMode === 'editor') && (
-            <EditorPane
-              value={content}
-              onChange={handleContentChange}
-              onSave={handleSaveFile}
-              onCursorChange={(line, col) => setCursorPos({ line, col })}
-              textareaRef={textareaRef}
-              onScroll={handleEditorScroll}
-            />
+            <div
+              style={{
+                width: editorMode === 'split' ? `${splitRatio}%` : '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                flexShrink: 0,
+              }}
+            >
+              <EditorPane
+                value={content}
+                onChange={handleContentChange}
+                onSave={handleSaveFile}
+                onCursorChange={(line, col) => setCursorPos({ line, col })}
+                textareaRef={textareaRef}
+                onScroll={handleEditorScroll}
+              />
+            </div>
           )}
 
           {/* Divider between panes in split mode */}
-          {editorMode === 'split' && <div className="pane-divider" />}
+          {editorMode === 'split' && (
+            <div
+              className={`pane-divider ${isDraggingSplit ? 'resizing' : ''}`}
+              onMouseDown={handleSplitMouseDown}
+              onDoubleClick={() => {
+                setSplitRatio(50);
+                localStorage.setItem('flanmd_split_ratio', '50');
+              }}
+              title="拖拽调整编辑器与预览比例 (双击恢复 50:50)"
+            />
+          )}
 
           {/* Preview Pane: Shown in 'split', 'live', and 'reader' modes */}
           {(editorMode === 'split' || editorMode === 'live' || editorMode === 'reader') && (
-            <PreviewPane
-              html={html}
-              frontmatter={frontmatter}
-              theme={theme}
-              isReaderMode={editorMode === 'reader'}
-              previewRef={previewRef}
-              onScroll={handlePreviewScroll}
-            />
+            <div
+              style={{
+                width: editorMode === 'split' ? `${100 - splitRatio}%` : '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                flex: 1,
+              }}
+            >
+              <PreviewPane
+                html={html}
+                frontmatter={frontmatter}
+                theme={theme}
+                isReaderMode={editorMode === 'reader'}
+                previewRef={previewRef}
+                onScroll={handlePreviewScroll}
+              />
+            </div>
           )}
         </main>
       </div>

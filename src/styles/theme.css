@@ -236,16 +236,15 @@ html, body, #root {
 
 .markdown-preview h1 {
   font-size: 2.1rem;
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 0.5rem;
   margin-top: 1rem;
+  margin-bottom: 0.85rem;
 }
 .markdown-preview h2 {
   font-size: 1.6rem;
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 0.4rem;
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
 }
-.markdown-preview h3 { font-size: 1.3rem; }
+.markdown-preview h3 { font-size: 1.3rem; margin-top: 1.5rem; }
 .markdown-preview h4 { font-size: 1.15rem; }
 
 .markdown-preview .heading-anchor {
