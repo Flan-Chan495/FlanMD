@@ -134,8 +134,8 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   }, [value]);
 
   const digits = Math.max(2, String(lineCount).length);
-  const charWidth = Math.round(fontSize * 0.58);
-  const lineNumWidth = digits * charWidth + 14;
+  const charWidth = Math.round(fontSize * 0.6);
+  const lineNumWidth = Math.max(38, digits * charWidth + 20);
 
   return (
     <div className="pane-editor">
@@ -147,7 +147,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           style={{ width: `${lineNumWidth}px`, minWidth: `${lineNumWidth}px` }}
         >
           {Array.from({ length: lineCount }).map((_, i) => (
-            <div key={i}>{i + 1}</div>
+            <div key={i} className="line-num">{i + 1}</div>
           ))}
         </div>
 

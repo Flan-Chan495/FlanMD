@@ -347,12 +347,13 @@
 }
 
 .raw-line-numbers {
-  padding: 1.5rem 8px 1.5rem 4px;
+  padding: 1.5rem 0;
+  margin: 0;
   font-family: var(--font-mono);
-  font-size: calc(var(--editor-font-size, 17px) * 0.94);
+  font-size: var(--editor-font-size, 17px);
   line-height: 1.7;
   color: var(--text-muted);
-  text-align: right;
+  text-align: center;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-subtle);
   user-select: none;
@@ -363,9 +364,15 @@
   font-feature-settings: "calt" 0, "liga" 0;
 }
 
+.raw-line-numbers .line-num {
+  text-align: center;
+  line-height: 1.7;
+}
+
 .raw-textarea {
   flex: 1;
   padding: 1.5rem 1.25rem;
+  margin: 0;
   font-family: var(--font-mono);
   font-size: var(--editor-font-size, 17px);
   line-height: 1.7;
@@ -378,6 +385,7 @@
   white-space: pre-wrap;
   word-break: break-word;
   overflow-y: auto;
+  box-sizing: border-box;
   font-variant-ligatures: none;
   -webkit-font-variant-ligatures: none;
   font-feature-settings: "calt" 0, "liga" 0;
