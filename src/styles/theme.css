@@ -205,8 +205,8 @@ html, body, #root {
   padding: 2.5rem 3.5rem;
   max-width: 900px;
   margin: 0 auto;
-  line-height: 1.75;
-  font-size: 1.05rem;
+  line-height: 1.8;
+  font-size: 1.1rem;
   color: var(--text-primary);
   user-select: text;
   word-break: break-word;

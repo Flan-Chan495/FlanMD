@@ -131,11 +131,18 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
     handleSelectionChange();
   }, [value]);
 
+  const digits = Math.max(2, String(lineCount).length);
+  const lineNumWidth = digits * 9 + 16;
+
   return (
     <div className="pane-editor">
       <div className="raw-editor-container">
         {/* Line numbers column */}
-        <div className="raw-line-numbers" ref={lineNumbersRef}>
+        <div
+          className="raw-line-numbers"
+          ref={lineNumbersRef}
+          style={{ width: `${lineNumWidth}px`, minWidth: `${lineNumWidth}px` }}
+        >
           {Array.from({ length: lineCount }).map((_, i) => (
             <div key={i}>{i + 1}</div>
           ))}
