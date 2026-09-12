@@ -7,6 +7,7 @@ interface EditorPaneProps {
   onCursorChange?: (line: number, col: number) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   onScroll?: (scrollTop: number, scrollHeight: number, clientHeight: number) => void;
+  fontSize?: number;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -16,6 +17,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   onCursorChange,
   textareaRef,
   onScroll,
+  fontSize = 17,
 }) => {
   const lineNumbersRef = useRef<HTMLDivElement>(null);
 
@@ -132,7 +134,8 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   }, [value]);
 
   const digits = Math.max(2, String(lineCount).length);
-  const lineNumWidth = digits * 9 + 16;
+  const charWidth = Math.round(fontSize * 0.58);
+  const lineNumWidth = digits * charWidth + 14;
 
   return (
     <div className="pane-editor">

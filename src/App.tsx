@@ -147,6 +147,47 @@ export const App: React.FC = () => {
     window.addEventListener('mouseup', onMouseUp);
   };
 
+  // Font Size Scaling State (Ctrl + MouseWheel)
+  const [fontSize, setFontSize] = useState<number>(() => {
+    const saved = localStorage.getItem('flanmd_font_size');
+    return saved ? parseInt(saved, 10) : 17;
+  });
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--editor-font-size', `${fontSize}px`);
+    document.documentElement.style.setProperty(
+      '--preview-font-size',
+      `${(fontSize * 1.03).toFixed(1)}px`
+    );
+  }, [fontSize]);
+
+  // Ctrl + MouseWheel Zoom Handler
+  useEffect(() => {
+    let toastTimer: any = null;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1 : -1;
+        setFontSize((prev) => {
+          const next = Math.max(12, Math.min(36, prev + delta));
+          localStorage.setItem('flanmd_font_size', String(next));
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => {
+            showToast(`🔍 字体缩放: ${next}px (${Math.round((next / 17) * 100)}%)`);
+          }, 100);
+          return next;
+        });
+      }
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      clearTimeout(toastTimer);
+    };
+  }, []);
+
+
 
   // Apply theme to root document
   useEffect(() => {
@@ -377,12 +418,18 @@ export const App: React.FC = () => {
     }, 50);
   };
 
-  // Global hotkeys (Ctrl+S, Ctrl+B for sidebar toggle)
+  // Global hotkeys (Ctrl+S for save, Ctrl+0 for zoom reset)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleSaveFile();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === '0' || e.key === 'NumPad0')) {
+        e.preventDefault();
+        setFontSize(17);
+        localStorage.setItem('flanmd_font_size', '17');
+        showToast('🔍 字体大小已重置为默认 (100%)');
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -508,6 +555,7 @@ export const App: React.FC = () => {
                 onCursorChange={(line, col) => setCursorPos({ line, col })}
                 textareaRef={textareaRef}
                 onScroll={handleEditorScroll}
+                fontSize={fontSize}
               />
             </div>
           )}
